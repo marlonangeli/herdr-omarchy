@@ -22,6 +22,14 @@ The Omarchy desktop, rebuilt inside Herdr. Your terminals and coding agents sit 
 - **Omarchy's keys.** The layout uses Omarchy's own keys wherever GNOME leaves them free. `super-k` lists every key, with the ones that came with the layout set apart.
 - **Square dialogs that match.** The command palette, Settings, a Keybindings list and a mod manager that browses, reviews and installs community mods all share the same look.
 
+OpenCode uses its original model-based OAuth route by default. To opt into Omarchy agents' cached Codex quota for an OpenAI OpenCode provider, add `usage_source: "omarchy"` to the `ai-usage` block's `content.props` in an existing `layouts/omarchy.json`, keeping `compact: true`:
+
+```json
+"props": { "compact": true, "usage_source": "omarchy" }
+```
+
+This reads only `~/.local/state/omarchy/agents/usage/codex.json`, maintained by Omarchy agents. It accepts a ready, non-stale cache fetched within 12 minutes and does not read OpenCode credentials, make a quota request, log in, or refresh the cache. It shows Omarchy's ChatGPT subscription; the account is not verified against OpenCode. Without the property, the original routing remains active.
+
 ## Features
 
 - **Top bar**: your spaces on the left, AI usage in the middle, search, sidebar and window buttons on the right.
@@ -42,7 +50,7 @@ The agent copies the layout, mods, themes and wallpapers into `~/.config/herdr-a
 
 > [!NOTE]
 > Some mods use the network or run programs:
-> - `omarchy-ai-usage` reads the local login files of your AI agents (Claude, Codex, Copilot, OpenCode and Pi). It uses the tokens in them to get your usage from the API of each provider.
+> - `omarchy-ai-usage` reads local login files for direct provider usage (Claude, Codex, Copilot, OpenCode and Pi). With the explicit `usage_source: "omarchy"` option, OpenCode/OpenAI instead uses Omarchy agents' Codex quota cache; that subscription may differ from OpenCode's account. This cache route reads no credentials and makes no network request.
 > - `omarchy-spaces`, `omarchy-files` and `omarchy-changes` run `git` in your folders. The commit graph in `omarchy-changes` also runs `find` to look for repos in a folder that is not one.
 > - `omarchy-mod-manager` searches GitHub for mods. It runs `git` and `gh` to download and install them.
 
