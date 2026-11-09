@@ -61,17 +61,17 @@ export default class AiUsage extends View {
     this.refreshRequestId = Number(shared(REFRESH_HANDLED)) || 0;
     this.refreshInFlightId = 0;
     cx.timer.every(60e3, cx => {
+      cx.notify();
       const requestId = Number(shared(REFRESH_REQUEST)) || 0;
       const requested = requestId > this.refreshRequestId;
-      if (requested && this.refreshInFlightId === requestId) { cx.notify(); return; }
+      if (requested && this.refreshInFlightId === requestId) return;
       if (requested) this.refreshInFlightId = requestId;
-      cx.spawn(async cx => {
+      cx.spawn(async () => {
         const current = await this.refreshSources();
         if (current) {
           await refreshAll(requested);
           if (requested) this.acknowledgeRefresh(requestId);
         } else if (requested && this.refreshInFlightId === requestId) this.refreshInFlightId = 0;
-        cx.notify();
       });
     });
   }

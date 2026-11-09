@@ -26,6 +26,7 @@ function usageHarness(files = {}, response = {}, status = 200, settings = {}, pr
     setShared: (key, value) => state.set(key, value),
     fetch: async (url, options) => {
       requests.push({ url, ...options });
+      if (response && typeof response.then === 'function') return response;
       return { ok: status === 200, status, json: async () => response };
     },
   };
@@ -525,4 +526,54 @@ test('older provider discovery cannot overwrite or refresh a newer source list',
   assert.deepEqual(h.state.get('omarchy-ai-usage.omarchy.codex').windows.map(w => w.used), [46, 8]);
   assert.equal(h.requests.length, 0);
   assert.ok(!h.reads.includes('/home/test/.local/share/opencode/auth.json'));
+});
+
+test('each 60-second tick notifies while a due quota request remains pending', async () => {
+  const originalNow = Date.now, start = Date.now();
+  let now = start, resolveQuota;
+  Date.now = () => now;
+  const quotaResponse = new Promise(resolve => { resolveQuota = resolve; });
+  const live = { focused: { tab: 't1' }, panes: [
+    { tab: 't1', terminal: 'codex', focused: true, program: { key: 'codex', name: 'Codex', icon: 'codex.svg', tint: true, agent: true } },
+    { tab: 't1', terminal: 'copilot', focused: false, program: { key: 'copilot', name: 'Copilot', icon: 'copilot.svg', tint: true, agent: true } },
+  ] };
+  const h = usageHarness({
+    '/home/test/.config/github-copilot/hosts.json': { github: { oauth_token: 'synthetic-copilot-token' } },
+  }, quotaResponse, 200, {}, {}, live);
+  const codexCache = { checked: new Date(start).toISOString(), fetched: new Date(start - 12 * 60_000 + 1000).toISOString(),
+    windows: [{ short: '5h', long: '5-hour limit', span: 5 * H, used: 25, resets_at: new Date(start + 10_000).toISOString() }] };
+  h.state.set('omarchy-ai-usage.shown', { list: [codex, copilot], idle: false });
+  h.state.set('omarchy-ai-usage.codex', codexCache);
+  h.state.set('omarchy-ai-usage.copilot', { checked: new Date(start - 5 * 60_000 - 1).toISOString(), windows: [] });
+  let tick, notifications = 0, tasks = [];
+  const cx = {
+    timer: { every(_ms, cb) { tick = cb; } },
+    spawn(fn) { const task = fn(cx); tasks.push(task); return task; },
+    notify() { notifications++; },
+  };
+  const instance = new h.AiUsage();
+  instance.init({}, cx);
+  let pending;
+  try {
+    assert.ok(start - Date.parse(codexCache.fetched) < 12 * 60_000);
+    now += 2000;
+    assert.ok(now - Date.parse(codexCache.fetched) > 12 * 60_000);
+    tick(cx);
+    assert.equal(notifications, 1, 'the tick redraws before the quota fetch completes');
+    pending = tasks.at(-1);
+    let settled = false;
+    pending.then(() => { settled = true; });
+    for (let i = 0; i < 12 && !h.requests.length; i++) await Promise.resolve();
+    assert.equal(h.requests.length, 1);
+    assert.equal(settled, false);
+
+    now += 2000;
+    tick(cx);
+    assert.equal(notifications, 2, 'a later tick redraws even though the first fetch is still pending');
+    assert.equal(settled, false);
+  } finally {
+    resolveQuota({ ok: true, status: 200, json: async () => ({ quota_reset_date_utc: '2026-12-01', quota_snapshots: {} }) });
+    await Promise.all(tasks);
+    Date.now = originalNow;
+  }
 });
