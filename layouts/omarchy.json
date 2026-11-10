@@ -40,14 +40,14 @@
             }
           },
           "size": {
-            "weight": 1
+            "weight": 3
           }
         },
         {
           "id": "ai-usage",
           "type": "block",
           "size": {
-            "weight": 2
+            "weight": 2.5
           },
           "content": {
             "mod": "omarchy-ai-usage",
@@ -60,7 +60,7 @@
           "id": "bar-right",
           "type": "block",
           "size": {
-            "weight": 1
+            "weight": 3
           },
           "content": {
             "mod": "omarchy-bar",
