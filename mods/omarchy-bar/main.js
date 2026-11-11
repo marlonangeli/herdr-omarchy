@@ -109,7 +109,7 @@ export default class OmarchyBar extends View {
         .hover((s) => s.bg(t.hover).text_color(t.foreground)).on_click(openBrowser)
         .child(svg("mods/omarchy-pane/browser/globe.svg").size(14))))
       .child(own(div().id("search").flex_none().w(30).h_full().flex().items_center().justify_center().cursor_pointer().text_color(t.dim)
-        .hover((s) => s.bg(t.hover).text_color(t.foreground)).on_click(() => run("mod.open", { name: "picker" }))
+        .hover((s) => s.bg(t.hover).text_color(t.foreground)).on_click(() => run("mod.open", { name: "omarchy-picker" }))
         .child(svg("mods/omarchy-chrome/search.svg").size(14))))
       .when(Boolean(space), (el) => el.child(sep())
         .child(div().flex_none().text_color(t.foreground).child(space.name))
@@ -125,7 +125,7 @@ export default class OmarchyBar extends View {
       div().id(id).flex_none().w(30).h_full().flex().items_center().justify_center().cursor_pointer().text_color(t.dim)
         .hover((s) => s.bg(danger ? t.blocked : t.hover).text_color(danger ? t.background : t.foreground))
         .on_click(() => run(cmd))
-        .child(svg(`mods/terminals-bar/${icon}.svg`).size(14)));
+        .child(svg(`mods/omarchy-bar/${icon}.svg`).size(14)));
     return row.justify_end()
       .when(Boolean(w?.buttons), (el) => el
         .child(btn("wb-min", "win-min", "window.minimize"))

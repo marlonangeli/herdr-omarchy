@@ -42,6 +42,7 @@
     "super-shift-space": "layout.toggle:topbar",
     "ctrl-alt-shift-t": "omarchy-tabs.reopen",
     "ctrl-alt-o": "omarchy-pane.dev",
-    "ctrl-alt-i": "omarchy-pane.inspect"
+    "ctrl-alt-i": "omarchy-pane.inspect",
+    "ctrl-shift-k": "mod.open:omarchy-picker"
   }
 }

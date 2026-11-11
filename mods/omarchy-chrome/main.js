@@ -56,12 +56,12 @@ export default class WorkspaceChrome extends View {
           .when(Boolean(updates().app.ready), el => el.child(div().size(6).rounded(0).bg(t.accent).when(collapsed, d => d.absolute().top(2).right(2)))))
         .child(row("keys", "keyboard", "Keybindings", false, () => run("mod.open", { name: "omarchy-keys" })))
         .child(row("mods", "layers", "Mods", false, () => run("mod.open", { name: "omarchy-mod-manager" })))
-        .child(row("machine", "plus", "Add machine", true, () => run("mod.open", { name: "machine-add" })));
+        .child(row("machine", "plus", "Add machine", true, () => run("mod.open", { name: "omarchy-machine-add" })));
     }
     return h_flex().size_full().bg(t.chrome).pl(collapsed ? 6 : 14).pr(10).gap(4).items_center().text_size(12)
       .when(window()?.platform === "macos" && !window()?.fullscreen && !collapsed, el => el.pl(76))
       .when(!collapsed, el => el.child(h_flex().flex_1().gap(8).items_center().child(div().size(12).flex_none().rounded(0).bg(t.accent)).child(div().font_semibold().text_color(t.foreground).child("herdr"))))
-      .when(!collapsed, el => el.child(this.button("search", svg("mods/omarchy-chrome/search.svg").size(15), () => run("mod.open", { name: "picker" }))))
+      .when(!collapsed, el => el.child(this.button("search", svg("mods/omarchy-chrome/search.svg").size(15), () => run("mod.open", { name: "omarchy-picker" }))))
       // On the macOS rail the traffic lights fill the row; the agents list's » unfolds it.
       .when(!(collapsed && window()?.platform === "macos"), el => el.child(this.button("sidebar-toggle", svg("mods/omarchy-chrome/sidebar.svg").size(15), toggleSidebar)));
   }

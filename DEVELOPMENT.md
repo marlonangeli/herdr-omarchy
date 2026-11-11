@@ -1,6 +1,6 @@
 # Working on Omarchy
 
-Each folder under `mods/` is a self-contained Herdr mod. `main.js` is its entry point. Keep helper imports within that folder so the mod can be installed independently. Herdr runs the UI with `gpui-kit`, `gpui-base`, and `herdr`; Node APIs are available only in tests.
+Each folder under `mods/` is a self-contained Herdr mod, with its own copy of every icon it draws: nothing refers to Herdr's shipped mods, which are replaced at every start. `main.js` is its entry point. Keep helper imports within that folder so the mod can be installed independently. Herdr runs the UI with `gpui-kit`, `gpui-base`, and `herdr`; Node APIs are available only in tests.
 
 ## Where to make changes
 
@@ -29,6 +29,11 @@ Each folder under `mods/` is a self-contained Herdr mod. `main.js` is its entry 
 | Keybindings list | `mods/omarchy-keys/main.js` |
 | Browser toolbar: reload on save, DevTools, Chrome window | `mods/omarchy-pane/main.js` |
 | Browser helper changes (outside this repo) | `patches/herdr-browser.patch` |
+| Applying the helper patch | `patches/apply-herdr-browser.sh` |
+| Notifications (layout root `toast`) | `mods/omarchy-toast/main.js` |
+| Terminal right-click menu (layout root `terminal_menu`), space and tab menus | `mods/omarchy-menu/main.js` |
+| Go-to picker (search button, palette) | `mods/omarchy-picker/main.js` |
+| Add a machine dialog | `mods/omarchy-machine-add/main.js` |
 | Theme switcher and its previews | `mods/omarchy-themes/main.js`, `mods/omarchy-themes/previews/` |
 
 ## Check changes
@@ -52,12 +57,13 @@ Herdr's browser lives in `~/.local/share/herdr-browser`, and a Herdr update repl
 - `helper.mjs`: Chrome also opens a local debugging port, and each page's state carries its DevTools address (`inspect`) and its count of console errors since the last navigation (`errors`). The pane toolbar reads both.
 - `view.mjs`: wheel ticks that arrive within 16 ms go to the page as one scroll, and frames are capped at 30 a second instead of 20.
 
-Apply it again after an update, then restart the helper:
+Run the script after installing the layout and again after every Herdr update:
 
 ```sh
-patch -d ~/.local/share/herdr-browser -p1 < patches/herdr-browser.patch
-herdr-browser stop && herdr-browser start
+sh patches/apply-herdr-browser.sh
 ```
+
+It applies the patch only when it is not applied yet and says so when it is. When the helper has changed so much that the patch no longer fits, it changes nothing, prints one line and exits with 1. After applying, it restarts the helper if it is running (`herdr-browser` needs `node` on PATH; without it the script says so and skips the restart). Give it a folder to patch a copy instead of the live helper: `sh patches/apply-herdr-browser.sh /tmp/helper-copy`. With a folder it never restarts the helper.
 
 The debugging port listens on 127.0.0.1 only and Chrome refuses connections from web pages, but any program on the machine can drive that browser through it.
 

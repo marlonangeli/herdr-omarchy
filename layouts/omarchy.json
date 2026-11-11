@@ -18,6 +18,8 @@
     12
   ],
   "preview": "layouts/omarchy.svg",
+  "toast": "omarchy-toast",
+  "terminal_menu": "omarchy-menu",
   "resizable": false,
   "children": [
     {
