@@ -177,7 +177,7 @@ export default class AiUsage extends View {
     });
     // The same │ the bar puts between space and folder, only between segments.
     const sep = i => div().id(`usage-sep-${i}`).flex_none().text_color(t.border).child("│");
-    return this.shell(h_flex()).when(narrow, el => el.justify_end(), el => el.justify_center()).px(10).gap(narrow ? 10 : 14).text_size(11).children(segs.flatMap((seg, i) => (i ? [sep(i), seg] : [seg])));
+    return this.shell(h_flex()).justify_end().px(10).gap(narrow ? 10 : 14).text_size(11).children(segs.flatMap((seg, i) => (i ? [sep(i), seg] : [seg])));
   }
 
   details() {

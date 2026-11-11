@@ -15,7 +15,7 @@ The Omarchy desktop, rebuilt inside Herdr. Your terminals and coding agents sit 
 ## Highlights
 
 - **Agents at a glance.** The sidebar lists every agent with its live status: working, needs you, done or idle. Tabs show each agent's icon, what it works on and a spinner while it runs.
-- **AI usage in the top bar.** The 5-hour and 7-day quotas of the agents on screen sit in the middle of the bar, each with a bar in its provider's color. Claude profiles are named, so a work and a personal account are easy to tell apart. Click for reset times.
+- **AI usage in the top bar.** The 5-hour and 7-day quotas of the agents on screen sit at the right of the bar, each with a bar in its provider's color. Claude profiles are named, so a work and a personal account are easy to tell apart. Click for reset times.
 - **Closed a tab by mistake? Bring it back.** `ctrl-alt-shift-t` reopens the last closed tab in the same place, with the same splits and sizes. Claude, Codex and pi come back in their own conversations, with their flags and profiles.
 - **Git without leaving the window.** The side panel shows your changes with a diff (wrap long lines, drag the split), commits, pushes, pulls, stashes and switches or creates branches. One click opens the full commit graph, with branch lanes, labels and right-click menus for checkout, merge, rebase, reset and tags.
 - **Omarchy's themes and wallpapers.** Every Omarchy theme ships with all of its wallpapers. The theme switcher is Omarchy 4's: big desktop previews, left and right to choose. A theme brings its own wallpaper, and `super-ctrl-w` cycles them. Light themes switch Herdr to light mode, dark ones back to dark.
@@ -24,7 +24,7 @@ The Omarchy desktop, rebuilt inside Herdr. Your terminals and coding agents sit 
 
 ## Features
 
-- **Top bar**: your spaces on the left, AI usage in the middle, search, sidebar and window buttons on the right.
+- **Top bar**: the menu, sidebar, browser and search buttons and the current space on the left; AI usage and the window buttons on the right. The browser button opens a blank browser tab in the space.
 - **Sidebar**: spaces and agents with their status. Resize it, or fold it into an icon rail. The footer opens Settings, Keybindings and Mods.
 - **Tabs**: agent icons, what each one works on, its status, and a close button on hover.
 - **Side panel**: Files with colored icons, and Changes with the commit graph inside it.
@@ -46,6 +46,7 @@ The agent copies the layout, mods, themes and wallpapers into `~/.config/herdr-a
 > - `omarchy-ai-usage` reads the local login files of your AI agents (Claude, Codex, Copilot, OpenCode and Pi). It uses the tokens in them to get your usage from the API of each provider.
 > - `omarchy-spaces`, `omarchy-files` and `omarchy-changes` run `git` in your folders. The commit graph in `omarchy-changes` also runs `find` to look for repos in a folder that is not one.
 > - `omarchy-pane` runs `google-chrome` or `chromium` for the browser toolbar's DevTools and Chrome-window buttons, and your system's opener for links.
+> - `omarchy-bar` starts `herdr-browser view` through your shell for its browser button.
 > - `omarchy-mod-manager` searches GitHub for mods. It runs `git` and `gh` to download and install them.
 
 ## Keys

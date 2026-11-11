@@ -60,7 +60,7 @@
           "id": "bar-right",
           "type": "block",
           "size": {
-            "weight": 3
+            "px": 90
           },
           "content": {
             "mod": "omarchy-bar",
