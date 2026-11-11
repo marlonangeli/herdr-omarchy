@@ -5,6 +5,7 @@ import { syncNames } from "./names.js";
 import { renderPaneHeader } from "./pane.js";
 import { spaces, panes, terminals, props, run, openOverlay, theme, shared, setShared, layout, exec, readTextFile, home, appHome, nextCommand, notify } from "herdr";
 import { resumeCommand, argvOf } from "./reopen.js";
+import { jump } from "./jump.js";
 
 // The last closed tabs (newest last), kept across restarts for ctrl-alt-shift-t.
 const CLOSED = "omarchy-tabs.closed";
@@ -37,10 +38,19 @@ export default class Tabs extends View {
     // Each step touches cx, so a reloaded strip's old loop ends instead of eating the key.
     cx.spawn(async (cx) => {
       for (;;) {
-        if ((await nextCommand()) === "reopen") this.reopen(cx);
+        const c = await nextCommand();
+        if (c === "reopen") this.reopen(cx);
+        else this.jump(c);
         cx.notify();
       }
     });
+  }
+
+  jump(c) {
+    const dir = c === "tab-next" ? 1 : c === "tab-prev" ? -1 : 0;
+    if (!dir) return;
+    const t = jump(spaces().find(s => s.active)?.tabs ?? [], t => t.active, dir);
+    if (t) run("tab.select", { id: t.id });
   }
 
   track(cx) {

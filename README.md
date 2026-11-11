@@ -59,6 +59,8 @@ These keys work only in the Omarchy layout, except Ctrl+arrows, which also apply
 | `alt-1` … `alt-9` | Go to tab 1 to 9 |
 | `alt-left` / `alt-right` | Previous / next tab |
 | `alt-up` / `alt-down` | Previous / next space |
+| `alt-shift-left` / `alt-shift-right` | Previous / next tab with a working or blocked agent; every tab when no other has one |
+| `alt-shift-up` / `alt-shift-down` | Previous / next agent |
 | `ctrl-left` / `ctrl-right` / `ctrl-up` / `ctrl-down` | Move between panes |
 | `alt-enter` / `alt-shift-enter` | Split the pane right / down |
 | `super-return` | New terminal |
