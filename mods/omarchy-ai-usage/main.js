@@ -196,6 +196,10 @@ export default class AiUsage extends View {
   shell(el) {
     const t = theme(), edge = props()?.border;
     return el.id("root").size_full().items_center().bg(t.chrome).overflow_hidden()
+      .on_size_change((_size, cx) => {
+        const narrow = globalThis.window.viewport_size().width < 1024;
+        if (narrow !== this.narrow) { this.narrow = narrow; cx.notify(); }
+      })
       .when(edge === "top", el => el.border_t(1).border_color(t.border))
       .when(edge === "bottom", el => el.border_b(1).border_color(t.border))
       .on_mouse_down("left", (e, cx) => { this.anchor = e.bounds; cx.stop_propagation(); })
@@ -225,6 +229,7 @@ export default class AiUsage extends View {
   // 330px: one provider gets label, bar and two windows; two drop the label; more keep one window each.
   compact() {
     const t = theme(), list = shownList(), idle = shared(SHOWN)?.idle;
+    const narrow = this.narrow ?? globalThis.window.viewport_size().width < 1024;
     const n = list.length;
     // Icon, then each window (5h, 7d) as its label, a bar and the percent. The popup has the rest.
     const barW = n === 1 ? 70 : n === 2 ? 48 : 32;
@@ -236,8 +241,9 @@ export default class AiUsage extends View {
         const c = color(w, stale, t, s);
         return h_flex().gap(5).items_center().flex_none()
           .child(div().whitespace_nowrap().text_color(t.dim).child(w.short))
-          .child(div().relative().w(barW).h(6).bg(t.border).child(div().absolute().left(0).top(0).h_full().w(`${clamp(w.used)}%`).bg(c)))
-          .child(div().whitespace_nowrap().text_color(stale ? t.dim : w.used >= 80 ? c : t.muted).child(`${w.used}%`));
+          // Narrow windows: no bar, the percent carries the color instead.
+          .when(!narrow, el => el.child(div().relative().w(barW).h(6).bg(t.border).child(div().absolute().left(0).top(0).h_full().w(`${clamp(w.used)}%`).bg(c))))
+          .child(div().whitespace_nowrap().text_color(narrow || stale || w.used >= 80 ? c : t.muted).child(`${w.used}%`));
       };
       return h_flex().gap(6).items_center().flex_none()
         .child(this.icon(s, 12, stale))
@@ -249,7 +255,7 @@ export default class AiUsage extends View {
     });
     // The same │ the bar puts between space and folder, only between segments.
     const sep = i => div().id(`usage-sep-${i}`).flex_none().text_color(t.border).child("│");
-    return this.shell(h_flex()).justify_center().px(10).gap(14).text_size(11).children(segs.flatMap((seg, i) => (i ? [sep(i), seg] : [seg])));
+    return this.shell(h_flex()).justify_end().px(10).gap(narrow ? 10 : 14).text_size(11).children(segs.flatMap((seg, i) => (i ? [sep(i), seg] : [seg])));
   }
 
   details() {

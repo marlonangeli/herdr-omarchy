@@ -1,6 +1,6 @@
 import { View, div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { spaces, agents, theme, run, window, props, layout, shared, setShared, focused, home, nextCommand, settings } from "herdr";
+import { spaces, theme, run, window, props, layout, shared, setShared, focused, home, nextCommand, settings } from "herdr";
 import { wallpapers, setWallpaper, setZoomBorder, ZOOM_BORDER } from "./wallpaper.js";
 
 const own = (el) => el.on_mouse_down("left", (_e, cx) => cx.stop_propagation());
@@ -21,6 +21,12 @@ function toggleSidebar() {
   if (!narrow) setShared("sidebar.width", width);
   setShared("sidebar.collapsed", !narrow);
   run("layout.resize", { id: "sidebar", px: narrow ? (shared("sidebar.width") ?? 268) : window()?.platform === "macos" ? 76 : 44 });
+}
+
+// A blank browser tab in the space on screen. Through the person's shell:
+// herdr-browser needs node, which often is on the shell's PATH only (nvm).
+function openBrowser() {
+  run("tab.new", { name: "Browser", argv: ["sh", "-c", 'exec "${SHELL:-sh}" -lic "exec herdr-browser view"'] });
 }
 
 // The theme's next wallpaper, as Omarchy's Super+Ctrl+Space.
@@ -72,7 +78,6 @@ export default class OmarchyBar extends View {
       if (zoomed || this.zoomed !== undefined || find(layout(), "main")?.content?.pane?.focus?.width === ZOOM_BORDER) setZoomBorder(zoomed);
       this.zoomed = zoomed;
     }
-    const blocked = new Set(agents().filter((a) => a.status === "blocked").map((a) => a.space));
     const space = list.find((s) => s.active);
     const cwd = focused()?.cwd;
     const here = cwd ? (cwd === home() ? "~" : cwd.split("/").filter(Boolean).pop()) : null;
@@ -80,17 +85,32 @@ export default class OmarchyBar extends View {
     // macOS draws its window buttons over this corner; leave them room.
     const w = window();
     return row.pl(w?.platform === "macos" && !w.fullscreen ? 76 : 4)
+      .on_size_change((_size, cx) => {
+        const narrow = globalThis.window.viewport_size().width < 1024;
+        if (narrow !== this.narrow) {
+          this.narrow = narrow;
+          const sizes = narrow
+            ? [["bar-left", { weight: 1 }], ["ai-usage", { weight: 2 }], ["bar-right", { px: w?.buttons ? 90 : 0 }]]
+            : [["bar-left", { weight: 3 }], ["ai-usage", { weight: 2.5 }], ["bar-right", { px: w?.buttons ? 90 : 0 }]];
+          for (const [id, size] of sizes) {
+            const current = find(layout(), id)?.size;
+            if (current && (current.px !== size.px || current.weight !== size.weight)) run("layout.resize", { id, ...size });
+          }
+          cx.notify();
+        }
+      })
       .child(own(div().id("menu").flex_none().size(24).mr(6).flex().items_center().justify_center().cursor_pointer()
         .hover((s) => s.bg(t.hover)).on_click(() => run("mod.open", { name: "omarchy-palette" }))
         .text_color(t.accent).child(svg("mods/omarchy-bar/omarchy.svg").size(14))))
-      .children(list.map((s, i) => {
-        const col = blocked.has(s.id) ? t.blocked : s.active ? t.foreground : t.dim;
-        return div().id(`ws-${s.id}`).flex_none().h_full().px(8).flex().items_center().justify_center().cursor_pointer()
-          .border_b(2).border_color(s.active ? t.accent : "#00000000").text_color(col)
-          .hover((st) => st.text_color(t.foreground).bg(t.hover))
-          .on_click(() => run("space.select", { id: s.id }))
-          .child(String(i + 1));
-      }))
+      .child(own(div().id("sidebar-toggle").flex_none().w(30).h_full().flex().items_center().justify_center().cursor_pointer().text_color(t.dim)
+        .hover((s) => s.bg(t.hover).text_color(t.foreground)).on_click(toggleSidebar)
+        .child(svg("mods/omarchy-chrome/sidebar.svg").size(14))))
+      .child(own(div().id("browser").flex_none().w(30).h_full().flex().items_center().justify_center().cursor_pointer().text_color(t.dim)
+        .hover((s) => s.bg(t.hover).text_color(t.foreground)).on_click(openBrowser)
+        .child(svg("mods/omarchy-pane/browser/globe.svg").size(14))))
+      .child(own(div().id("search").flex_none().w(30).h_full().flex().items_center().justify_center().cursor_pointer().text_color(t.dim)
+        .hover((s) => s.bg(t.hover).text_color(t.foreground)).on_click(() => run("mod.open", { name: "omarchy-picker" }))
+        .child(svg("mods/omarchy-chrome/search.svg").size(14))))
       .when(Boolean(space), (el) => el.child(sep())
         .child(div().flex_none().text_color(t.foreground).child(space.name))
         // The focused terminal may have moved away from the folder its space was named after.
@@ -105,14 +125,8 @@ export default class OmarchyBar extends View {
       div().id(id).flex_none().w(30).h_full().flex().items_center().justify_center().cursor_pointer().text_color(t.dim)
         .hover((s) => s.bg(danger ? t.blocked : t.hover).text_color(danger ? t.background : t.foreground))
         .on_click(() => run(cmd))
-        .child(svg(`mods/terminals-bar/${icon}.svg`).size(14)));
+        .child(svg(`mods/omarchy-bar/${icon}.svg`).size(14)));
     return row.justify_end()
-      .child(own(div().id("search").flex_none().w(30).h_full().flex().items_center().justify_center().cursor_pointer().text_color(t.dim)
-        .hover((s) => s.bg(t.hover).text_color(t.foreground)).on_click(() => run("mod.open", { name: "picker" }))
-        .child(svg("mods/omarchy-chrome/search.svg").size(14))))
-      .child(own(div().id("sidebar-toggle").flex_none().w(30).h_full().flex().items_center().justify_center().cursor_pointer().text_color(t.dim)
-        .hover((s) => s.bg(t.hover).text_color(t.foreground)).on_click(toggleSidebar)
-        .child(svg("mods/omarchy-chrome/sidebar.svg").size(14))))
       .when(Boolean(w?.buttons), (el) => el
         .child(btn("wb-min", "win-min", "window.minimize"))
         .child(btn("wb-max", w.maximized ? "win-restore" : "win-max", "window.maximize"))

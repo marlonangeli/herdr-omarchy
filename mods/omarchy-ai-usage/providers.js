@@ -1,4 +1,4 @@
-import { home, readTextFile, settings } from "herdr";
+import { appHome, home, readTextFile } from "herdr";
 import { H, DAY } from "./time.js";
 
 const json = async path => {
@@ -134,7 +134,7 @@ const omarchySource = v => ({
 // organization ("Flexspring"), or "Personal" for the "<email>'s Organization" a personal account
 // gets, else the folder's name. ~/.claude keeps its state in ~/.claude.json, other folders inside.
 async function claudeName(dir) {
-  const own = settings()?.claude_labels?.[dir.replace(home(), "~")];
+  const own = (await json(`${appHome()}/settings.json`))?.claude_labels?.[dir.replace(home(), "~")];
   if (typeof own === "string" && own) return own;
   const file = dir === `${home()}/.claude` ? `${home()}/.claude.json` : `${dir}/.claude.json`;
   const text = await readTextFile(file).catch(() => null);

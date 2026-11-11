@@ -20,7 +20,7 @@ function button(t, id, asset, command, args) {
   return div().id(id).p(3).rounded(4).text_color(t.dim)
     .hover(s => s.bg(t.hover).text_color(t.foreground))
     .on_click((_event, cx) => { cx.stop_propagation(); run(command, args); })
-    .child(svg(`mods/pane/${asset}.svg`).size(14));
+    .child(svg(`mods/omarchy-tabs/icons/${asset}.svg`).size(14));
 }
 
 export function renderPaneHeader(view) {
@@ -37,7 +37,7 @@ export function renderPaneHeader(view) {
     .when(Boolean(pic), el => el.child(pic))
     .child(div().flex_none().truncate().max_w(260).font_medium().text_color(t.foreground).tooltip(name).child(name))
     .child(div().flex_1().truncate().text_color(t.dim).child(folder(p.cwd)))
-    .when(p.status === "working", el => el.child(svg("mods/workspace-chrome/spinner.svg").size(12).flex_none().text_color(t.working).spin(900)))
+    .when(p.status === "working", el => el.child(svg("mods/omarchy-tabs/icons/spinner.svg").size(12).flex_none().text_color(t.working).spin(900)))
     .when(p.status === "blocked", el => el.child(div().flex_none().px(6).h(18).flex().items_center().rounded(5).bg(t.blocked + "26").text_size(10.5).font_semibold().text_color(t.blocked).child("Needs you")))
     .when(p.status === "done", el => el.child(div().size(7).flex_none().rounded(4).bg(t.done)))
     .when(view.hovered, el => el

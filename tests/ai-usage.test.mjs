@@ -10,6 +10,7 @@ function usageHarness(files = {}, response = {}, status = 200, settings = {}, pr
   const dependencies = {
     View: class {},
     home: () => '/home/test',
+    appHome: () => '/home/test/.config/herdr-app',
     settings: () => settings,
     props: () => currentProps,
     focused: () => live.focused ?? null,
@@ -190,8 +191,10 @@ test('a Claude profile is named after its organization, Personal, or its folder'
 });
 
 test('settings.json claude_labels names a Claude profile outright', async () => {
-  const { route } = usageHarness({ '/home/test/.claude.json': { oauthAccount: { organizationName: 'Flexspring' } } },
-    {}, 200, { claude_labels: { '~/.claude': 'Work' } });
+  const { route } = usageHarness({
+    '/home/test/.claude.json': { oauthAccount: { organizationName: 'Flexspring' } },
+    '/home/test/.config/herdr-app/settings.json': { claude_labels: { '~/.claude': 'Work' } },
+  });
   assert.equal((await route(agent('claude'), '/home/test/.claude'))[0].label, 'Work');
   assert.equal((await route(agent('claude'), '/home/test/.claude-other'))[0].label, 'Other');
 });

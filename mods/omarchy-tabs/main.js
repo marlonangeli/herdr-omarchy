@@ -5,6 +5,7 @@ import { syncNames } from "./names.js";
 import { renderPaneHeader } from "./pane.js";
 import { spaces, panes, terminals, props, run, openOverlay, theme, shared, setShared, layout, exec, readTextFile, home, appHome, nextCommand, notify } from "herdr";
 import { resumeCommand, argvOf } from "./reopen.js";
+import { jump } from "./jump.js";
 
 // The last closed tabs (newest last), kept across restarts for ctrl-alt-shift-t.
 const CLOSED = "omarchy-tabs.closed";
@@ -37,10 +38,19 @@ export default class Tabs extends View {
     // Each step touches cx, so a reloaded strip's old loop ends instead of eating the key.
     cx.spawn(async (cx) => {
       for (;;) {
-        if ((await nextCommand()) === "reopen") this.reopen(cx);
+        const c = await nextCommand();
+        if (c === "reopen") this.reopen(cx);
+        else this.jump(c);
         cx.notify();
       }
     });
+  }
+
+  jump(c) {
+    const dir = c === "tab-next" ? 1 : c === "tab-prev" ? -1 : 0;
+    if (!dir) return;
+    const t = jump(spaces().find(s => s.active)?.tabs ?? [], t => t.active, dir);
+    if (t) run("tab.select", { id: t.id });
   }
 
   track(cx) {
@@ -199,13 +209,13 @@ export default class Tabs extends View {
           if (from !== null && from !== i) run("tab.move", { id: shown[from].id, index: space.tabs.findIndex(x => x.id === c.id) + 1 });
           else run("tab.select", { id: c.id });
         })
-        .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); openOverlay({ mod: "menu", kind: "popup", width: 200, props: { tab: "tab", target: { id: c.id, space: space.id } } }); })
+        .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); openOverlay({ mod: "omarchy-menu", kind: "popup", width: 200, props: { tab: "tab", target: { id: c.id, space: space.id } } }); })
         .when(icons.length > 0, el => el.child(h_flex().flex_none().gap(6).children(icons.map(p => p.tint ? svg(p.icon).size(14).text_color(t.muted) : image(p.icon).size(14)))))
         .child(div().flex_1().min_w(0).truncate().child(c.zoomed ? `${name} Z` : name))
         .when(Boolean(status), el => el.child(div().flex_none().text_size(10.5).text_color(t[c.status] ?? t.muted).child(status)))
-        .when(c.status === "working", el => el.child(svg("mods/workspace-chrome/spinner.svg").size(12).flex_none().text_color(t.working).spin(900)))
+        .when(c.status === "working", el => el.child(svg("mods/omarchy-tabs/icons/spinner.svg").size(12).flex_none().text_color(t.working).spin(900)))
         .when(c.status === "blocked" || c.status === "done", el => el.child(div().size(6).rounded(0).bg(t[c.status])))
-        .when(c.active || this.overTab === c.id, el => el.child(div().id(`close-${c.id}`).flex_none().p(3).rounded(0).text_color(t.dim).hover(s => s.bg(hov).text_color(t.foreground)).on_mouse_down("left", stop).on_click((_e, cx) => { cx.stop_propagation(); run("tab.close", { id: c.id }); }).child(svg("mods/pane/close.svg").size(14))));
+        .when(c.active || this.overTab === c.id, el => el.child(div().id(`close-${c.id}`).flex_none().p(3).rounded(0).text_color(t.dim).hover(s => s.bg(hov).text_color(t.foreground)).on_mouse_down("left", stop).on_click((_e, cx) => { cx.stop_propagation(); run("tab.close", { id: c.id }); }).child(svg("mods/omarchy-tabs/icons/close.svg").size(14))));
     };
     const root = layout();
     const panel = find(root, "panel"), body = find(root, "panel-body");
@@ -234,8 +244,8 @@ export default class Tabs extends View {
         .on_click(() => openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512 })).child("+"))
       .child(div().flex_1())
       .child(h_flex().h_full().gap(0).items_center().flex_none()
-      .when(enabled.includes("files"), el => el.child(panelButton("files", "Files", "mods/files/file.svg")))
-      .when(enabled.includes("changes"), el => el.child(panelButton("changes", "Changes", "mods/changes/changes.svg")))
+      .when(enabled.includes("files"), el => el.child(panelButton("files", "Files", "mods/omarchy-tabs/icons/files.svg")))
+      .when(enabled.includes("changes"), el => el.child(panelButton("changes", "Changes", "mods/omarchy-tabs/icons/changes.svg")))
       .when(enabled.includes("graph"), el => el.child(panelButton("graph", "Graph", "mods/omarchy-tabs/icons/graph.svg"))));
   }
 }

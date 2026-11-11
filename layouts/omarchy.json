@@ -18,6 +18,8 @@
     12
   ],
   "preview": "layouts/omarchy.svg",
+  "toast": "omarchy-toast",
+  "terminal_menu": "omarchy-menu",
   "resizable": false,
   "children": [
     {
@@ -40,14 +42,14 @@
             }
           },
           "size": {
-            "weight": 1
+            "weight": 3
           }
         },
         {
           "id": "ai-usage",
           "type": "block",
           "size": {
-            "weight": 2
+            "weight": 2.5
           },
           "content": {
             "mod": "omarchy-ai-usage",
@@ -60,7 +62,7 @@
           "id": "bar-right",
           "type": "block",
           "size": {
-            "weight": 1
+            "px": 90
           },
           "content": {
             "mod": "omarchy-bar",
@@ -124,7 +126,7 @@
               "id": "sidebar-footer",
               "type": "block",
               "size": {
-                "px": 136
+                "px": 84
               },
               "content": {
                 "mod": "omarchy-chrome",
@@ -243,7 +245,7 @@
                           "id": "browser-notes",
                           "type": "block",
                           "content": {
-                            "mod": "omarchy-notes"
+                            "mod": "herdr-browser"
                           }
                         }
                       ],
