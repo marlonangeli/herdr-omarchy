@@ -29,6 +29,7 @@ The Omarchy desktop, rebuilt inside Herdr. Your terminals and coding agents sit 
 - **Tabs**: agent icons, what each one works on, its status, and a close button on hover.
 - **Side panel**: Files with colored icons, and Changes with the commit graph inside it.
 - **Themes**: every Omarchy color theme, each with its wallpapers.
+- **Browser panes**: a local page reloads when you save a file in its folder (pages directly in `/tmp` do not). The toolbar counts the page's console errors, opens DevTools on it, or opens the page in a real Chrome window.
 
 ## Install
 
@@ -44,6 +45,7 @@ The agent copies the layout, mods, themes and wallpapers into `~/.config/herdr-a
 > Some mods use the network or run programs:
 > - `omarchy-ai-usage` reads the local login files of your AI agents (Claude, Codex, Copilot, OpenCode and Pi). It uses the tokens in them to get your usage from the API of each provider.
 > - `omarchy-spaces`, `omarchy-files` and `omarchy-changes` run `git` in your folders. The commit graph in `omarchy-changes` also runs `find` to look for repos in a folder that is not one.
+> - `omarchy-pane` runs `google-chrome` or `chromium` for the browser toolbar's DevTools and Chrome-window buttons, and your system's opener for links.
 > - `omarchy-mod-manager` searches GitHub for mods. It runs `git` and `gh` to download and install them.
 
 ## Keys
@@ -59,6 +61,8 @@ These keys work only in the Omarchy layout, except Ctrl+arrows, which also apply
 | `alt-enter` / `alt-shift-enter` | Split the pane right / down |
 | `super-return` | New terminal |
 | `ctrl-alt-shift-t` | Reopen the last closed tab, with its agents resumed |
+| `ctrl-alt-o` | Open the browser pane's page in a Chrome window |
+| `ctrl-alt-i` | Open DevTools on the browser pane's page |
 | `super-w` | Close the pane |
 | `super-f` | Zoom the pane |
 | `super-c` / `super-v` | Copy / paste |

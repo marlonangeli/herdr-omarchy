@@ -6,12 +6,13 @@
 //
 // A pane showing a herdr-browser page gets the browser's toolbar instead, in
 // the look of Herdr UI's browser tabs: back, forward, reload, the address,
-// zoom, Annotate and open-in-browser. Annotating shows the browser-notes
+// zoom, Annotate, DevTools (ctrl-alt-i), open-in-Chrome-app (ctrl-alt-o) and
+// open-in-browser. Annotating shows the browser-notes
 // panel in the layout's right-hand stack.
 
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex, InputState, Input } from "gpui-base";
-import { panes, props, run, theme, home, exec, layout, shared, setShared, window } from "herdr";
+import { panes, props, run, theme, home, exec, layout, shared, setShared, window, focused, nextCommand, readTextFile, watchFolder } from "herdr";
 import { act, readLive, watchLive, touches } from "./browser/client.js";
 
 function icon(p, size, color) {
@@ -47,6 +48,22 @@ function openOutside(url) {
   else exec(window()?.platform === "linux" ? "xdg-open" : "open", [url]);
 }
 
+// A real Chrome window for development: smooth scrolling, DevTools and
+// extensions, which the streamed page can't give. `setsid -f` detaches it so
+// exec's 30 s timeout can't kill a Chrome this call started.
+const CHROME = 'for b in google-chrome chromium; do command -v $b >/dev/null && exec setsid -f $b "$@"; done; exit 1';
+function openApp(url, ...flags) {
+  if (window()?.platform !== "linux") return openOutside(url);
+  exec("sh", ["-c", CHROME, "sh", ...flags, `--app=${url}`]).then((r) => { if (r.code) openOutside(url); }, () => openOutside(url));
+}
+// The flag only takes when this starts Chrome: in a running one, press F12.
+const openDev = (url) => openApp(url, "--auto-open-devtools-for-tabs");
+
+// Saving one of these under a local page's folder reloads the page.
+const PAGE_FILE = /\.(html?|css|m?js|json|svg|png|jpe?g|gif|webp|md)$/i;
+// herdr-browser serves each local folder from its own host name.
+const servedBy = (live) => (live?.local ? /^https?:\/\/([^.]+)\.herdr\.localhost/.exec(live.url)?.[1] : null) || null;
+
 const BROWSER = "mods/omarchy-pane/browser";
 
 export default class Pane extends View {
@@ -70,6 +87,14 @@ export default class Pane extends View {
       cx.notify();
     });
     if (!this.terminal) return;
+    cx.spawn(async () => {
+      for (;;) {
+        const c = await nextCommand();
+        if (!this.live || focused()?.pane !== props()?.pane) continue;
+        if (c === "dev" && /^https?:/.test(this.live.url)) openDev(this.live.url);
+        if (c === "inspect" && this.live.inspect) openApp(this.live.inspect);
+      }
+    });
     cx.spawn(async (cx) => { await this.reload(cx); });
     watchLive(cx, this, async (changed, cx) => {
       if (touches(changed, this.terminal)) await this.reload(cx);
@@ -107,6 +132,7 @@ export default class Pane extends View {
       this.flash = flash;
       cx.timer.after(4000, (cx) => { if (this.flash === flash) { this.flash = null; cx.notify(); } });
     }
+    this.follow(cx);
     if (live.annotating && !before?.annotating) this.showNotes();
     if (!live.annotating && before?.annotating) this.hideNotes();
     cx.notify();
@@ -120,6 +146,33 @@ export default class Pane extends View {
       if (this.closed) { if (ok) await act(this.terminal, "native", { on: false }); return; }
       if (!ok) cx.timer.after(2000, (cx) => cx.spawn(async (cx) => { if (!this.closed) await this.reload(cx); }));
     }
+  }
+
+  // Watches the folder a local page is served from and reloads on save. A
+  // page being annotated is left alone: a reload would drop the pick.
+  async follow(cx) {
+    const host = servedBy(this.live);
+    if (host === this.served) return;
+    this.served = host;
+    this.watch = null;
+    if (!host) return;
+    const text = await readTextFile(`${home()}/.local/share/herdr-browser/state/folders.json`).catch(() => null);
+    let folder = null;
+    try { folder = JSON.parse(text)[host]; } catch {}
+    // /tmp is everyone's: other programs' files there would reload the page.
+    if (!folder || folder === "/tmp" || this.served !== host) return;
+    // Only the newest watch reloads: one left from an earlier page ends on its next change.
+    const watch = this.watch = {};
+    cx.spawn(async () => {
+      for (;;) {
+        let changed;
+        // A tree too large to watch rejects: that page just doesn't auto-reload.
+        try { changed = await watchFolder(folder); } catch { return; }
+        if (this.closed || this.watch !== watch) return;
+        if (this.live?.annotating || !changed.some((p) => p === folder || PAGE_FILE.test(p))) continue;
+        act(this.terminal, "reload");
+      }
+    });
   }
 
   // The notes live in the layout's right-hand stack while annotating; the
@@ -258,6 +311,10 @@ export default class Pane extends View {
           // Unsent notes wait while the panel is closed: show how many.
           .when(!armed && notes > 0, (e) => e.child(div().h(16).min_w(16).px(4).rounded(0).flex().items_center().justify_center()
             .bg(t.ansi3).text_color(t.background).text_size(10).font_semibold().child(String(notes))))))
+      // DevTools on the page shown here; the count is its console errors.
+      .child(this.tool(t, `bh-inspect-${pane}`, "bug", Boolean(live.inspect), () => openApp(live.inspect), live.errors ? String(live.errors) : null,
+        (el) => (live.errors ? el.text_color(t.blocked) : el)))
+      .child(this.tool(t, `bh-dev-${pane}`, "code", page && /^https?:/.test(live.url), () => openDev(live.url)))
       .child(this.tool(t, `bh-open-${pane}`, "external", page && /^https?:/.test(live.url), () => openOutside(live.url)))
       // The pane controls show on hover in room kept for them, so the
       // toolbar doesn't shift under the pointer.

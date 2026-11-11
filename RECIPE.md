@@ -73,7 +73,7 @@ Top to bottom, left to right. Sizes are logical px at zoom 1. Colors below are t
   - It calls only the providers' own hosts: `api.anthropic.com`, `chatgpt.com`, `api.github.com`. On Linux it reads `/proc/*/environ` to match each terminal to its Claude config directory.
   - `omarchy-spaces` and `omarchy-changes` run `git`.
   - The graph in `omarchy-changes` runs `git`, `find` and `env` (Manygit's fetch-all), and reads files in the repo for diffs.
-  - `omarchy-pane` runs `xdg-open` (Linux), `open` (macOS) or `explorer` (Windows) to open links.
+  - `omarchy-pane` runs `xdg-open` (Linux), `open` (macOS) or `explorer` (Windows) to open links. On Linux its browser toolbar also runs `google-chrome` or `chromium` as an app window: for the page (`ctrl-alt-o`, key command `omarchy-pane.dev`) and for DevTools on the page the pane shows (`ctrl-alt-i`, `omarchy-pane.inspect`). It watches the folder of a local page and reloads the page when an HTML, CSS, JS, JSON, image or Markdown file in it is saved, except while annotating and for pages directly in `/tmp`. The DevTools button and its red error count need the helper patch in `patches/herdr-browser.patch`; without it the button stays disabled.
   - `omarchy-notes` talks to the local herdr-browser helper (`~/.local/share/herdr-browser`).
   - `omarchy-mod-manager` runs `git`, `gh` (its Marketplace searches GitHub repos tagged `herdr-mod` and `herdr-layout`) and `herdr-app check`.
 - **Herdr screen copies**: the palette and Settings copies won't follow Herdr updates to its own screens. Re-copy `frame/palette` and `frame/settings` and reapply `rounded(0)` after a big update.

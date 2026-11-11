@@ -1,0 +1,108 @@
+--- a/helper.mjs
++++ b/helper.mjs
+@@ -185,8 +185,10 @@
+     fs.mkdirSync(profile, { recursive: true });
+     // Left by a Chrome that ran with a debugging port.
+     try { fs.unlinkSync(path.join(profile, "DevToolsActivePort")); } catch {}
++    devtoolsPort = null;
+     const proc = spawn(binary, [
+-      "--headless=new", "--remote-debugging-pipe", `--user-data-dir=${profile}`,
++      // The port (local only, picked by Chrome) lets DevTools inspect a page.
++      "--headless=new", "--remote-debugging-pipe", "--remote-debugging-port=0", `--user-data-dir=${profile}`,
+       "--no-first-run", "--no-default-browser-check", "--mute-audio", "--hide-crash-restore-bubble",
+       "--disable-features=Translate,MediaRouter", "--window-size=1280,800", "about:blank",
+     ], { stdio: ["ignore", "ignore", "pipe", "pipe", "pipe"], windowsHide: true });
+@@ -295,6 +297,14 @@
+ // The folders local pages are served from, by token; only this process
+ // writes the file, so it is read once.
+ let foldersCache = null;
++// Chrome notes the debugging port it picked in its profile.
++let devtoolsPort = null;
++function devtoolsUrl(targetId) {
++  if (!targetId) return null;
++  if (!devtoolsPort) try { devtoolsPort = Number(fs.readFileSync(path.join(STATE, "profile", "DevToolsActivePort"), "utf8").split("\n")[0]) || null; } catch {}
++  return devtoolsPort ? `http://127.0.0.1:${devtoolsPort}/devtools/inspector.html?ws=127.0.0.1:${devtoolsPort}/devtools/page/${targetId}` : null;
++}
++
+ const folders = () => (foldersCache ||= readJSON(path.join(STATE, "folders.json"), {}));
+ 
+ function savePages() {
+@@ -375,6 +385,7 @@
+       pick: this.pick ? describePick(this.pick) : null,
+       notes: this.notes.map((n, i) => ({ id: n.id, number: i + 1, label: noteLabel(n.anchor), comment: n.comment, shot: n.shot || null, size: pngSize(n.shot) })),
+       native: !!this.native, toast: this.toast || null, addressSeq: this.addressSeq || 0,
++      errors: this.errors || 0, inspect: devtoolsUrl(this.targetId),
+     };
+   }
+ 
+@@ -458,6 +469,12 @@
+     });
+   }
+ 
++  pageError() {
++    if ((this.errors || 0) >= 99) return;
++    this.errors = (this.errors || 0) + 1;
++    this.sync();
++  }
++
+   cmd(method, params) {
+     if (!this.session || !chrome) return Promise.reject(new Error("page not open"));
+     return chrome.cdp.send(method, params, this.session);
+@@ -495,6 +512,7 @@
+     this.session = sessionId;
+     await this.cmd("Page.enable");
+     await this.cmd("Runtime.enable");
++    await this.cmd("Log.enable").catch(() => {});
+     await this.cmd("Runtime.addBinding", { name: "__herdrIpc" });
+     await this.cmd("Page.addScriptToEvaluateOnNewDocument", { source: PAGE_PRELUDE });
+     // The picker runs in a world of its own: the page can't post picks for it.
+@@ -588,10 +606,17 @@
+       case "Page.frameNavigated":
+         if (!params.frame.parentId) {
+           if (!this.opening) this.url = params.frame.url;
++          this.errors = 0;
+           this.clearPick();
+           this.history();
+         }
+         break;
++      // Errors since the last navigation, counted for the toolbar. A page
++      // logging them in a loop stops costing a state write at 99.
++      case "Runtime.exceptionThrown": this.pageError(); break;
++      case "Runtime.consoleAPICalled": if (params.type === "error") this.pageError(); break;
++      // Not the favicon a local page rarely has: that would mark every page.
++      case "Log.entryAdded": if (params.entry?.level === "error" && !/\/favicon\.ico$/.test(params.entry.url || "")) this.pageError(); break;
+       case "Page.navigatedWithinDocument": this.url = params.url; this.history(); break;
+       case "Page.javascriptDialogOpening": {
+         // Nobody can answer the page's dialogs here: alerts and leaving the
+--- a/view.mjs
++++ b/view.mjs
+@@ -23,8 +23,8 @@
+ const HERDR_CELL = { w: 6.95 / 12.1, h: 19 / 12.1, tw: 7.25 / 12.1 };
+ const NOTE_COLORS = "\x1b[30;43m";
+ const HERDR_APP = process.platform === "win32" ? "herdr-app.exe" : "herdr-app";
+-// Frames beyond this rate only cost the app: a busy page settles for 20 a second.
+-const FRAME_MS = 50;
++// Frames beyond this rate only cost the app: a busy page settles for 30 a second.
++const FRAME_MS = 33;
+ 
+ const out = (s) => process.stdout.write(s);
+ const width = (s) => [...s].length;
+@@ -888,7 +888,17 @@
+       if (inPage) {
+         const step = 48;
+         const dir = m.b & 3;
+-        this.send({ op: "wheel", x: at.x * this.cell.tw, y: (at.y - this.top + 1) * this.cell.h, dx: dir === 2 ? step : dir === 3 ? -step : 0, dy: dir === 0 ? step : dir === 1 ? -step : 0, mods });
++        // Ticks arriving within one frame go to the page as one scroll: each
++        // dispatched wheel event makes Chrome render and stream a full frame.
++        const w = this.wheelAcc ||= { x: 0, y: 0, dx: 0, dy: 0, mods };
++        w.x = at.x * this.cell.tw; w.y = (at.y - this.top + 1) * this.cell.h; w.mods = mods;
++        w.dx += dir === 2 ? step : dir === 3 ? -step : 0;
++        w.dy += dir === 0 ? step : dir === 1 ? -step : 0;
++        if (!this.wheelTimer) this.wheelTimer = setTimeout(() => {
++          const acc = this.wheelAcc;
++          this.wheelAcc = null; this.wheelTimer = null;
++          if (acc.dx || acc.dy) this.send({ op: "wheel", ...acc });
++        }, 16);
+       } else if (this.showNotes) {
+         this.notesScroll += (m.b & 3) === 1 ? 2 : -2;
+         this.drawPanel();
