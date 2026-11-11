@@ -16,8 +16,11 @@ const STALE = 12 * 60e3;
 const AMBER = "#ffb347", RED = "#ff5d6c";
 const POPUP_W = 320, GAP = 6;
 
+const refreshing = new Set();
+
 async function refreshOne(src) {
-  if (!src.provider) return;
+  if (!src.provider || refreshing.has(src.id)) return;
+  refreshing.add(src.id);
   const prev = shared(keyOf(src.id)) ?? {};
   const now = new Date().toISOString();
   try {
@@ -25,11 +28,13 @@ async function refreshOne(src) {
     setShared(keyOf(src.id), { checked: now, fetched: fetched ?? now, error: null, windows });
   } catch (e) {
     setShared(keyOf(src.id), { ...prev, checked: now, error: String(e?.message ?? e) });
-  }
+  } finally { refreshing.delete(src.id); }
 }
 
 const shownList = () => shared(SHOWN)?.list ?? [];
-const isOpenCodeSource = src => src.from?.harness === "opencode" || (src.id === "none.opencode" && src.agent === "OpenCode");
+const isOpenCodeSource = src => src.from?.harness === "opencode"
+  || (src.id === "none.opencode" && src.agent === "OpenCode")
+  || (src.id === "codex" && src.agent === "OpenCode" && src.label === "opencode" && src.from?.codex === true);
 const sourceSignature = (vis, usageSource) => `${vis.map(v => `${v.terminal}:${v.program.key}`).join(",")}|${usageSource ?? ""}`;
 const uniqueSources = list => {
   const sources = new Map();
@@ -60,18 +65,20 @@ export default class AiUsage extends View {
     this.discoveryGeneration = 0;
     this.refreshRequestId = Number(shared(REFRESH_HANDLED)) || 0;
     this.refreshInFlightId = 0;
+    this.refreshForcedId = 0;
     cx.timer.every(60e3, cx => {
       cx.notify();
       const requestId = Number(shared(REFRESH_REQUEST)) || 0;
       const requested = requestId > this.refreshRequestId;
-      if (requested && this.refreshInFlightId === requestId) return;
-      if (requested) this.refreshInFlightId = requestId;
+      const force = requested && this.refreshForcedId !== requestId;
+      if (force) this.refreshInFlightId = requestId;
       cx.spawn(async () => {
         const current = await this.refreshSources();
         if (current) {
-          await refreshAll(requested);
-          if (requested) this.acknowledgeRefresh(requestId);
-        } else if (requested && this.refreshInFlightId === requestId) this.refreshInFlightId = 0;
+          if (force) this.refreshForcedId = requestId;
+          await refreshAll(force);
+          if (force) this.acknowledgeRefresh(requestId);
+        } else if (force && this.refreshInFlightId === requestId) this.refreshInFlightId = 0;
       });
     });
   }
@@ -105,8 +112,10 @@ export default class AiUsage extends View {
         if (requested && this.refreshInFlightId === requestId) this.refreshInFlightId = 0;
         return;
       }
-      await refreshAll(requested);
-      if (requested) this.acknowledgeRefresh(requestId);
+      const force = requested && this.refreshForcedId !== requestId;
+      if (force) this.refreshForcedId = requestId;
+      await refreshAll(force);
+      if (force) this.acknowledgeRefresh(requestId);
     });
   }
 

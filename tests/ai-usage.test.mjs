@@ -463,6 +463,21 @@ test('original idle none.opencode descriptor can later enable Omarchy', async ()
   assert.ok(!h.reads.includes('/home/test/.local/share/opencode/auth.json'));
 });
 
+test('original shared-Codex OpenCode descriptor migrates but standalone Codex does not', async () => {
+  const files = { [opencodeConfigPath]: { providers: { openai: {} } } };
+  const h = usageHarness(files, {}, 200, {}, { usage_source: 'omarchy' });
+  const legacyOpenCode = { id: 'codex', provider: 'codex', agent: 'OpenCode', label: 'opencode', icon: 'codex.svg', tint: true, from: { codex: true } };
+  h.state.set('omarchy-ai-usage.shown', { list: [legacyOpenCode], idle: true });
+  await new h.AiUsage().refreshSources([], 'omarchy');
+  assert.equal(h.state.get('omarchy-ai-usage.shown').list[0].id, 'omarchy.codex');
+
+  const codexOnly = { id: 'codex', provider: 'codex', agent: 'Codex', label: 'codex', icon: 'codex.svg', tint: true, from: { codex: true } };
+  h.state.set('omarchy-ai-usage.shown', { list: [codexOnly], idle: true });
+  await new h.AiUsage().refreshSources([], 'omarchy');
+  assert.equal(h.state.get('omarchy-ai-usage.shown').list[0].id, 'codex');
+  assert.deepEqual(h.state.get('omarchy-ai-usage.shown').list[0].from, { codex: true });
+});
+
 test('visible option changes and the 60-second refresh rediscover OpenCode routing', async () => {
   const files = {
     [opencodeConfigPath]: { model: 'openai/gpt-5' },
@@ -528,22 +543,28 @@ test('older provider discovery cannot overwrite or refresh a newer source list',
   assert.ok(!h.reads.includes('/home/test/.local/share/opencode/auth.json'));
 });
 
-test('each 60-second tick notifies while a due quota request remains pending', async () => {
+test('periodic ticks redraw and refresh Omarchy during a forced Copilot fetch', async () => {
   const originalNow = Date.now, start = Date.now();
   let now = start, resolveQuota;
   Date.now = () => now;
   const quotaResponse = new Promise(resolve => { resolveQuota = resolve; });
   const live = { focused: { tab: 't1' }, panes: [
-    { tab: 't1', terminal: 'codex', focused: true, program: { key: 'codex', name: 'Codex', icon: 'codex.svg', tint: true, agent: true } },
+    { tab: 't1', terminal: 'opencode', focused: true, program: { key: 'opencode', name: 'OpenCode', icon: 'openai.svg', tint: true, agent: true } },
     { tab: 't1', terminal: 'copilot', focused: false, program: { key: 'copilot', name: 'Copilot', icon: 'copilot.svg', tint: true, agent: true } },
   ] };
+  let cache = { ready: true, limitsStale: false, limitsFetchedAt: start, limits: [
+    { label: '5h window', percent: 0.25, resetsAt: new Date(start + 3600_000).toISOString() },
+    { label: 'Weekly (7-day)', percent: 0.05, resetsAt: new Date(start + 7 * DAY).toISOString() },
+  ] };
   const h = usageHarness({
+    [opencodeConfigPath]: { model: 'openai/gpt-5' },
+    [omarchyCachePath]: () => JSON.stringify(cache),
     '/home/test/.config/github-copilot/hosts.json': { github: { oauth_token: 'synthetic-copilot-token' } },
-  }, quotaResponse, 200, {}, {}, live);
-  const codexCache = { checked: new Date(start).toISOString(), fetched: new Date(start - 12 * 60_000 + 1000).toISOString(),
+  }, quotaResponse, 200, {}, { usage_source: 'omarchy' }, live);
+  const initial = { checked: new Date(start).toISOString(), fetched: new Date(start).toISOString(),
     windows: [{ short: '5h', long: '5-hour limit', span: 5 * H, used: 25, resets_at: new Date(start + 10_000).toISOString() }] };
-  h.state.set('omarchy-ai-usage.shown', { list: [codex, copilot], idle: false });
-  h.state.set('omarchy-ai-usage.codex', codexCache);
+  h.state.set('omarchy-ai-usage.shown', { list: [omarchySource, copilot], idle: false });
+  h.state.set('omarchy-ai-usage.omarchy.codex', initial);
   h.state.set('omarchy-ai-usage.copilot', { checked: new Date(start - 5 * 60_000 - 1).toISOString(), windows: [] });
   let tick, notifications = 0, tasks = [];
   const cx = {
@@ -553,27 +574,42 @@ test('each 60-second tick notifies while a due quota request remains pending', a
   };
   const instance = new h.AiUsage();
   instance.init({}, cx);
-  let pending;
+  let forcedTask;
   try {
-    assert.ok(start - Date.parse(codexCache.fetched) < 12 * 60_000);
-    now += 2000;
-    assert.ok(now - Date.parse(codexCache.fetched) > 12 * 60_000);
-    tick(cx);
-    assert.equal(notifications, 1, 'the tick redraws before the quota fetch completes');
-    pending = tasks.at(-1);
-    let settled = false;
-    pending.then(() => { settled = true; });
-    for (let i = 0; i < 12 && !h.requests.length; i++) await Promise.resolve();
+    instance.requestRefresh();
+    instance.sync(cx);
+    forcedTask = tasks.at(-1);
+    for (let i = 0; i < 20 && !h.requests.length; i++) await Promise.resolve();
     assert.equal(h.requests.length, 1);
-    assert.equal(settled, false);
+    assert.equal(h.requests[0].url, 'https://api.github.com/copilot_internal/user');
+    let forcedSettled = false;
+    forcedTask.then(() => { forcedSettled = true; });
+    assert.equal(forcedSettled, false);
 
-    now += 2000;
+    now = start + 13 * 60_000;
+    cache = { ready: true, limitsStale: false, limitsFetchedAt: now, limits: [
+      { label: '5h window', percent: 0.72, resetsAt: new Date(now + 3600_000).toISOString() },
+      { label: 'Weekly (7-day)', percent: 0.13, resetsAt: new Date(now + 7 * DAY).toISOString() },
+    ] };
     tick(cx);
-    assert.equal(notifications, 2, 'a later tick redraws even though the first fetch is still pending');
-    assert.equal(settled, false);
+    assert.equal(notifications, 1, 'the timer notifies before periodic work');
+    const periodicTask = tasks.at(-1);
+    for (let i = 0; i < 20 && h.state.get('omarchy-ai-usage.omarchy.codex')?.windows?.[0]?.used !== 72; i++) await Promise.resolve();
+    assert.deepEqual(h.state.get('omarchy-ai-usage.omarchy.codex').windows.map(w => w.used), [72, 13]);
+    assert.equal(h.state.get('omarchy-ai-usage.omarchy.codex').fetched, new Date(now).toISOString());
+    assert.equal(forcedSettled, false);
+
+    now += 60_000;
+    tick(cx);
+    assert.equal(notifications, 2, 'later ticks still notify while forced Copilot work is pending');
+    await tasks.at(-1);
+    assert.equal(h.requests.length, 1, 'the pending Copilot request is deduplicated');
+    assert.equal(forcedSettled, false);
+    assert.ok(h.reads.filter(path => path === omarchyCachePath).length >= 2);
   } finally {
     resolveQuota({ ok: true, status: 200, json: async () => ({ quota_reset_date_utc: '2026-12-01', quota_snapshots: {} }) });
     await Promise.all(tasks);
+    if (forcedTask) await forcedTask;
     Date.now = originalNow;
   }
 });
